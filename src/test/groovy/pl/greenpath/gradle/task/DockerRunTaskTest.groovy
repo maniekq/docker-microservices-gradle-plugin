@@ -63,6 +63,17 @@ class DockerRunTaskTest extends AbstractDockerTaskTest {
     task.getArgs() == ['run', '-d', '-p', '8080:8080', '--name=testProject', 'testProject']
   }
 
+  def "should invoke run on docker with attached volues"() {
+    given:
+    rootProject.docker.volume '/test', '/test2'
+    AbstractDockerTask task = getMockedTask()
+    when:
+    task.exec()
+    then:
+    task.getArgs() == ['run', '-d', '--name=testProject', '-v', '/test:/test2', 'testProject']
+  }
+
+
   def "should invoke run with extra args when defined in extension"() {
     given:
     rootProject.docker.runExtraArgs '-v', '--rm=false'

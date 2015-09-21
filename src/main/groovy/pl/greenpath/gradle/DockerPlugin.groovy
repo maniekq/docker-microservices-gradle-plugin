@@ -2,9 +2,12 @@ package pl.greenpath.gradle
 
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.tasks.Copy
+import org.gradle.api.plugins.JavaPluginConvention
 import pl.greenpath.gradle.extension.DockerExtension
 import pl.greenpath.gradle.task.*
+import pl.greenpath.gradle.task.dev.CopyDependenciesTask
+import pl.greenpath.gradle.task.dev.DockerBootRunTask
+import pl.greenpath.gradle.task.dev.SourceSetFinder
 
 /**
  * This plugin is eases usage of docker with microservices.
@@ -29,8 +32,16 @@ class DockerPlugin implements Plugin<Project> {
   void apply(Project project) {
     attachExtensions project
 
+    setupDockerTasks(project)
+    if (project.getConvention().findPlugin(JavaPluginConvention.class) != null) {
+      setupDevelopmentTasks(project)
+    }
+    project.afterEvaluate { configureDependantTasks project }
+  }
+
+  private void setupDockerTasks(Project project) {
     project.task('generateDockerfile', type: GenerateDockerfileTask)
-    project.task('copyJarToDockerDir', type: Copy, dependsOn: 'assemble') {
+    project.task('copyJarToDockerDir', type: CopyJarToDockerDirTask, dependsOn: 'assemble') {
       from(new File(project.buildDir, 'libs')) {
         include "${project.name}-${project.version}.jar"
       }
@@ -44,9 +55,14 @@ class DockerPlugin implements Plugin<Project> {
     project.task('dockerRemoveImage', type: DockerRemoveImageTask, dependsOn: 'dockerRemoveContainer')
     project.task('dockerBuild', type: DockerBuildTask, dependsOn:
         ['dockerRemoveImage', 'generateDockerfile', 'copyJarToDockerDir'])
-    project.afterEvaluate {
-      configureDependantTasks project
+  }
+
+  private void setupDevelopmentTasks(Project project) {
+    project.task('copyDependencies', type: CopyDependenciesTask) {
+      from new SourceSetFinder(project).findMainSourceSet().getRuntimeClasspath().filter { it.isFile() }
+      into 'build/dependencies'
     }
+    project.task('dockerDevRun', type: DockerBootRunTask, dependsOn: 'copyDependencies')
   }
 
   protected void configureDependantTasks(Project project) {

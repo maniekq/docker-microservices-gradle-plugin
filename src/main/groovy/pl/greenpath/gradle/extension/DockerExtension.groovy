@@ -1,4 +1,5 @@
 package pl.greenpath.gradle.extension
+
 import org.gradle.api.Project
 
 class DockerExtension {
@@ -15,6 +16,7 @@ class DockerExtension {
   private DockerfileDeclaration dockerfile
   private boolean generateDockerfile = true
   private boolean mapProjectPathsToFixedRoot = false
+  private Map<String, String> volumes = [:]
   private Project project
 
   DockerExtension(Project project) {
@@ -103,8 +105,7 @@ class DockerExtension {
 
     if (pathWithMarker.contains(rootProjectDirMarker)) {
       return pathWithMarker.replaceFirst(rootProjectDirMarker, fixedRootProjectPath)
-    }
-    else if (pathWithMarker.contains(projectDirMarker)) {
+    } else if (pathWithMarker.contains(projectDirMarker)) {
       return pathWithMarker.replaceFirst(projectDirMarker, getProjectDirPathOnDockerHost())
     }
 
@@ -117,8 +118,7 @@ class DockerExtension {
 
     if (pathWithMarker.contains(rootProjectDirMarker)) {
       return pathWithMarker.replaceFirst(rootProjectDirMarker, project.rootProject.projectDir.toString())
-    }
-    else if (pathWithMarker.contains(projectDirMarker)) {
+    } else if (pathWithMarker.contains(projectDirMarker)) {
       return pathWithMarker.replaceFirst(projectDirMarker, project.projectDir.toString())
     }
 
@@ -129,8 +129,7 @@ class DockerExtension {
     def srcPathWithoutMarker
     if (mapProjectPathsToFixedRoot) {
       srcPathWithoutMarker = replaceMarkerWithProjectPathMappedToFixedRoot(srcPath)
-    }
-    else {
+    } else {
       srcPathWithoutMarker = replaceMarkerWithRealPath(srcPath)
     }
     addDockerRunArgs('-v', "${srcPathWithoutMarker}:${dstPath}")
@@ -187,6 +186,10 @@ class DockerExtension {
     return imageName
   }
 
+  Map<String, String> getVolumes() {
+    return volumes
+  }
+
   boolean shouldGenerateDockerfile() {
     return generateDockerfile
   }
@@ -215,6 +218,10 @@ class DockerExtension {
     return dockerfile
   }
 
+  void volume(String hostVolumePath, String dockVolumePath) {
+    volumes[hostVolumePath] = dockVolumePath
+  }
+
   boolean getMapProjectPathsToFixedRoot() {
     return mapProjectPathsToFixedRoot
   }
@@ -233,5 +240,12 @@ class DockerExtension {
     from 'java:8'
     add jarFile, '.'
     cmd "java -jar $jarFile"
+  }
+
+  String sourceRunCmd() {
+    String dockerRelativePath = project.buildDir.absolutePath
+    List<String> cpDirs = ['/dependencies/*', '/classes/main', '/resources/main']
+    String classpath = cpDirs.collect({ "${dockerRelativePath}${it}" }).join(':')
+    return 'java -cp ' + classpath + ' ' + project.geta
   }
 }
